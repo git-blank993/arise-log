@@ -479,7 +479,7 @@ function EveningDebriefEditor({
           </div>
         </form>
       ) : (
-        <div className="min-h-[240px] border border-[#1f1f1f] rounded-md px-4 py-3 prose prose-invert prose-sm max-w-none prose-h3:text-xs prose-h3:font-semibold prose-h3:text-[#888] prose-h3:uppercase prose-h3:tracking-widest prose-h3:mb-2 prose-p:text-[#888] prose-p:text-sm prose-p:mt-0 prose-p:mb-3 last:prose-p:mb-0">
+        <div className="min-h-[240px] border border-[#1f1f1f] rounded-md px-4 py-3 markdown-body">
           {content.trim() ? (
             <ReactMarkdown>{content}</ReactMarkdown>
           ) : (

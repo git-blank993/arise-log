@@ -217,7 +217,7 @@ export default async function ProfilePage() {
 
                   {/* Evening debrief */}
                   {log.eveningDebrief?.content && (
-                    <div className="pt-3 border-t border-[#171717] prose prose-invert prose-sm max-w-none prose-h3:text-[11px] prose-h3:font-semibold prose-h3:text-[#555] prose-h3:uppercase prose-h3:tracking-widest prose-h3:mb-1 prose-p:text-[#666] prose-p:text-xs prose-p:mt-0 prose-p:mb-3 last:prose-p:mb-0">
+                    <div className="pt-3 border-t border-[#171717] markdown-body">
                       <ReactMarkdown>{log.eveningDebrief.content}</ReactMarkdown>
                     </div>
                   )}
