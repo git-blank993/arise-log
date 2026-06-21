@@ -102,9 +102,11 @@ function formatMins(m: number) {
 export default function LiveDashboard({
   todayLog,
   totalHistoricalMinutes,
+  currentRank,
 }: {
   todayLog: any | null;
   totalHistoricalMinutes: number;
+  currentRank: string;
 }) {
   const [activeTab, setActiveTab] = useState<Stat>("STR");
   const [timeTaken, setTimeTaken] = useState<number | "">(30);
@@ -139,15 +141,6 @@ export default function LiveDashboard({
   const staminaRemaining = 100 - staminaUsedPct;
   const isLimitBreak = staminaRemaining <= 0;
 
-  // ── Rank proxy ────────────────────────────────────────────────────────────────
-  const totalHours = (totalHistoricalMinutes + todayMinutes) / 60;
-  let rank = "E";
-  if (totalHours >= 500) rank = "S";
-  else if (totalHours >= 300) rank = "A";
-  else if (totalHours >= 150) rank = "B";
-  else if (totalHours >= 50) rank = "C";
-  else if (totalHours >= 10) rank = "D";
-
   const meta = STAT_META[activeTab];
 
   return (
@@ -157,7 +150,7 @@ export default function LiveDashboard({
       <div className="grid grid-cols-2 divide-x divide-[#1f1f1f] border border-[#1f1f1f] rounded-lg overflow-hidden">
         <div className="px-5 py-4">
           <p className="label mb-1">Rank</p>
-          <p className="text-xl font-semibold text-[#ededed]">{rank}-Class</p>
+          <p className="text-xl font-semibold text-[#ededed]">{currentRank}-Class</p>
         </div>
         <div className="px-5 py-4">
           <p className="label mb-1">Stamina</p>
