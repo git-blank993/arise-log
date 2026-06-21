@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
+import { Geist } from "next/font/google";
 import "./globals.css";
+import NavBar from "@/components/NavBar";
 
-const poppins = Poppins({
-  variable: "--font-poppins",
+const geist = Geist({
+  variable: "--font-geist",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "Arise Log - System Status",
-  description: "Minimal Daily System Status Tracking",
+  title: "Arise Log",
+  description: "Personal RPG life tracker",
 };
 
 export default function RootLayout({
@@ -19,8 +19,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${poppins.variable} font-sans h-full antialiased dark`}>
-      <body className="min-h-full bg-neutral-950 text-neutral-100 flex flex-col">
+    <html lang="en" className={`${geist.variable}`}>
+      <body className="min-h-screen bg-[#0a0a0a] text-[#ededed] antialiased">
+        <NavBar />
         {children}
       </body>
     </html>

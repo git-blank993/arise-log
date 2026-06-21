@@ -1,0 +1,6 @@
+No config path provided, using default 'drizzle.config.ts'
+Reading config file '/home/blank/Documents/github/personal/arise-log/drizzle.config.ts'
+◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+Using 'postgres' driver for database querying
+[⣷] Pulling schema from database...
+[2K[1G[⣷] Pulling schema from database...

@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { dailyLogs, dailyQuests, dungeonReports, systemNotifications } from "@/db/schema";
+import { dailyLogs, dailyQuests, statLogs, eveningDebriefs } from "@/db/schema";
 import { getSession } from "./auth";
 import { desc, eq, and, gte, lt } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -16,8 +16,8 @@ export async function getDailyLogs() {
     orderBy: [desc(dailyLogs.date)],
     with: {
       quests: true,
-      dungeonReports: true,
-      systemNotification: true,
+      statLogs: true,
+      eveningDebrief: true,
     },
   });
 }
@@ -91,11 +91,11 @@ export async function deleteQuest(questId: string) {
   revalidatePath("/");
 }
 
-export async function addDungeonReport(logId: string, formData: FormData) {
+export async function addStatLog(logId: string, formData: FormData) {
   const userId = await getSession();
   if (!userId) throw new Error("Unauthorized");
 
-  const statCategory = formData.get("statCategory") as "STR" | "AGI" | "VIT" | "INT" | "WIS" | "GOLD";
+  const statCategory = formData.get("statCategory") as string;
   const timeTakenMinutes = parseInt(formData.get("timeTakenMinutes") as string || "0", 10);
   
   // Extract custom fields from the formData based on dynamic inputs
@@ -111,7 +111,7 @@ export async function addDungeonReport(logId: string, formData: FormData) {
 
   if (!statCategory) throw new Error("Missing stat category");
 
-  await db.insert(dungeonReports).values({
+  await db.insert(statLogs).values({
     logId,
     statCategory,
     reportData,
@@ -121,39 +121,33 @@ export async function addDungeonReport(logId: string, formData: FormData) {
   revalidatePath("/");
 }
 
-export async function deleteDungeonReport(reportId: string) {
+export async function deleteStatLog(reportId: string) {
   const userId = await getSession();
   if (!userId) throw new Error("Unauthorized");
 
-  await db.delete(dungeonReports).where(eq(dungeonReports.id, reportId));
+  await db.delete(statLogs).where(eq(statLogs.id, reportId));
   revalidatePath("/");
 }
 
-export async function updateSystemNotifications(logId: string, formData: FormData) {
+export async function updateEveningDebrief(logId: string, formData: FormData) {
   const userId = await getSession();
   if (!userId) throw new Error("Unauthorized");
 
-  const levelUpMoment = formData.get("levelUpMoment") as string;
-  const debuffsTaken = formData.get("debuffsTaken") as string;
-  const nextDayObjective = formData.get("nextDayObjective") as string;
+  const content = formData.get("content") as string;
 
   // Check if exists
-  const existing = await db.query.systemNotifications.findFirst({
-    where: eq(systemNotifications.logId, logId),
+  const existing = await db.query.eveningDebriefs.findFirst({
+    where: eq(eveningDebriefs.logId, logId),
   });
 
   if (existing) {
-    await db.update(systemNotifications).set({
-      levelUpMoment,
-      debuffsTaken,
-      nextDayObjective,
-    }).where(eq(systemNotifications.id, existing.id));
+    await db.update(eveningDebriefs).set({
+      content,
+    }).where(eq(eveningDebriefs.id, existing.id));
   } else {
-    await db.insert(systemNotifications).values({
+    await db.insert(eveningDebriefs).values({
       logId,
-      levelUpMoment,
-      debuffsTaken,
-      nextDayObjective,
+      content,
     });
   }
 
