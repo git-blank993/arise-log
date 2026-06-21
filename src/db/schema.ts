@@ -27,6 +27,8 @@ export const dailyLogs = pgTable("daily_logs", {
   date: timestamp("date").defaultNow().notNull(),
   currentRank: varchar("current_rank").default("E-Class"),
   staminaRemaining: integer("stamina_remaining").default(100),
+  isRestDay: boolean("is_rest_day").default(false).notNull(),
+  restReason: text("rest_reason"),
 });
 
 export const dailyLogsRelations = relations(dailyLogs, ({ many, one }) => ({
@@ -61,6 +63,7 @@ export const statLogs = pgTable("stat_logs", {
   statCategory: varchar("stat_category").notNull(),
   timeTakenMinutes: integer("time_taken_minutes").notNull().default(0),
   reportData: jsonb("report_data"),
+  isPenalty: boolean("is_penalty").default(false).notNull(),
 });
 
 export const statLogsRelations = relations(statLogs, ({ one }) => ({

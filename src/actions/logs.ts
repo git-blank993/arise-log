@@ -22,13 +22,13 @@ export async function getDailyLogs() {
   });
 }
 
-export async function initializeDay() {
+export async function initializeDay(dateStr?: string, isRestDay: boolean = false, restReason?: string) {
   const userId = await getSession();
   if (!userId) redirect("/login");
 
-  // Get start and end of today
-  const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Get start and end of target day
+  const targetDate = dateStr ? new Date(dateStr) : new Date();
+  const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
   const startOfNextDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
   const existingLog = await db.query.dailyLogs.findFirst({
@@ -40,13 +40,18 @@ export async function initializeDay() {
   });
 
   if (existingLog) {
+    // If it exists, we can optionally update it to a rest day if requested?
+    // But usually we just return it. Let's return it.
     return existingLog.id;
   }
 
   const [newLog] = await db.insert(dailyLogs).values({
     userId,
-    currentRank: "E-Class", // Will be calculated on the fly in UI
+    date: startOfDay, // Ensure it's locked to that specific day
+    currentRank: "E-Class",
     staminaRemaining: 100,
+    isRestDay,
+    restReason,
   }).returning();
 
   revalidatePath("/");
@@ -111,12 +116,39 @@ export async function addStatLog(logId: string, formData: FormData) {
 
   if (!statCategory) throw new Error("Missing stat category");
 
+  const isPenalty = formData.get("isPenalty") === "true";
+
   await db.insert(statLogs).values({
     logId,
     statCategory,
     reportData,
     timeTakenMinutes,
+    isPenalty,
   });
+
+  revalidatePath("/");
+}
+
+export async function updateStatLog(reportId: string, formData: FormData) {
+  const userId = await getSession();
+  if (!userId) throw new Error("Unauthorized");
+
+  const timeTakenMinutes = parseInt(formData.get("timeTakenMinutes") as string || "0", 10);
+  
+  const reportDataStr = formData.get("reportData") as string;
+  let reportData = {};
+  if (reportDataStr) {
+    try {
+      reportData = JSON.parse(reportDataStr);
+    } catch (e) {
+      throw new Error("Invalid report data format");
+    }
+  }
+
+  await db.update(statLogs).set({
+    timeTakenMinutes,
+    reportData,
+  }).where(eq(statLogs.id, reportId));
 
   revalidatePath("/");
 }

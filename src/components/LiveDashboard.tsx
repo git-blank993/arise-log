@@ -7,11 +7,13 @@ import {
   deleteQuest,
   addStatLog,
   deleteStatLog,
+  updateStatLog,
   updateEveningDebrief,
 } from "@/actions/logs";
 import ReactMarkdown from "react-markdown";
-import { Plus, Trash2, CheckCircle, Circle, Loader2, ChevronDown } from "lucide-react";
+import { Plus, Trash2, CheckCircle, Circle, Loader2, ChevronDown, Edit2, X } from "lucide-react";
 import { useState, useTransition, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { SubmitButton } from "./SubmitButton";
 
 // ── Custom Select ─────────────────────────────────────────────────────────────
@@ -47,7 +49,15 @@ function CustomSelect({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 h-full px-3 py-2 bg-[#0a0a0a] border border-[#1f1f1f] rounded-md text-xs font-medium text-[#ededed] hover:border-[#333] transition-colors select-none"
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            const idx = options.indexOf(value);
+            if (e.key === "ArrowDown" && idx < options.length - 1) onChange(options[idx + 1]);
+            if (e.key === "ArrowUp" && idx > 0) onChange(options[idx - 1]);
+          }
+        }}
+        className="flex items-center gap-1.5 h-full px-3 py-2 bg-[#0a0a0a] border border-[#1f1f1f] rounded-md text-xs font-medium text-[#ededed] hover:border-[#333] focus:border-[#555] outline-none transition-colors select-none"
       >
         {value}
         <ChevronDown
@@ -78,7 +88,7 @@ function CustomSelect({
   );
 }
 
-const STAT_TABS = ["STR", "AGI", "INT", "WIS", "GOLD", "VIT"] as const;
+const STAT_TABS = ["STR", "AGI", "INT", "WIS", "GOLD", "VIT", "PENALTY"] as const;
 type Stat = (typeof STAT_TABS)[number];
 
 const STAT_META: Record<Stat, { label: string; f1: string; f2: string; isRecovery?: boolean }> = {
@@ -88,6 +98,7 @@ const STAT_META: Record<Stat, { label: string; f1: string; f2: string; isRecover
   WIS:  { label: "Architecture",        f1: "Project",       f2: "Feature / Bugs" },
   GOLD: { label: "Career",              f1: "Task",          f2: "Impact" },
   VIT:  { label: "Recovery",            f1: "",              f2: "", isRecovery: true },
+  PENALTY: { label: "Debuff / Bad Habit", f1: "Habit",       f2: "Reason" },
 };
 
 const TIME_PRESETS = [15, 30, 45, 60, 90, 120];
@@ -103,31 +114,151 @@ export default function LiveDashboard({
   todayLog,
   totalHistoricalMinutes,
   currentRank,
+  targetDate,
 }: {
   todayLog: any | null;
   totalHistoricalMinutes: number;
   currentRank: string;
+  targetDate: string;
 }) {
   const [activeTab, setActiveTab] = useState<Stat>("STR");
   const [timeTaken, setTimeTaken] = useState<number | "">(30);
   const [questStat, setQuestStat] = useState<string>("STR");
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  const [showRestInput, setShowRestInput] = useState(false);
+  const [restReason, setRestReason] = useState("");
+
+  // ── Keyboard Shortcuts ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // Date navigation ([ and ])
+      if (e.key === "[" || e.key === "]") {
+        const d = new Date(targetDate + "T00:00:00");
+        if (e.key === "[") d.setDate(d.getDate() - 1);
+        if (e.key === "]") d.setDate(d.getDate() + 1);
+        const yyyymmdd = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+        router.push(`/?date=${yyyymmdd}`);
+        return;
+      }
+
+      // Stat Tab switching (1-6)
+      if (e.key >= "1" && e.key <= "7") {
+        const index = parseInt(e.key) - 1;
+        if (index < STAT_TABS.length) {
+          setActiveTab(STAT_TABS[index]);
+        }
+        return;
+      }
+
+      // New log focus (n)
+      if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        const input = document.querySelector(".stat-input") as HTMLElement;
+        if (input) input.focus();
+        return;
+      }
+
+      // Clear Conditions focus (c)
+      if (e.key === "c" || e.key === "C") {
+        e.preventDefault();
+        const input = document.querySelector(".quest-input") as HTMLElement;
+        if (input) input.focus();
+        return;
+      }
+
+      // Evening Debrief focus (e)
+      if (e.key === "e" || e.key === "E") {
+        e.preventDefault();
+        const input = document.querySelector(".debrief-input") as HTMLElement;
+        if (input) input.focus();
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [router, targetDate]);
 
   // ── Not initialized ──────────────────────────────────────────────────────────
   if (!todayLog) {
+    if (showRestInput) {
+      return (
+        <div className="card py-8 space-y-4 max-w-sm mx-auto w-full">
+          <p className="label text-center">Rest Mode</p>
+          <div className="space-y-3">
+            <label className="label block">Reason for rest</label>
+            <input
+              type="text"
+              value={restReason}
+              onChange={(e) => setRestReason(e.target.value)}
+              placeholder="e.g. Sick, traveling, mandatory break"
+              className="input w-full"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowRestInput(false)}
+                className="btn-ghost flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => startTransition(() => { initializeDay(targetDate, true, restReason); })}
+                disabled={isPending || !restReason.trim()}
+                className="btn-primary flex-1"
+              >
+                {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Confirm Rest"}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="card text-center py-16 space-y-4">
         <p className="label">System Standby</p>
-        <h2 className="text-lg font-semibold text-[#ededed]">No log for today</h2>
+        <h2 className="text-lg font-semibold text-[#ededed]">No log for this date</h2>
         <p className="text-sm text-[#555]">Initialize the system to begin tracking.</p>
-        <button
-          onClick={() => startTransition(() => { initializeDay(); })}
-          disabled={isPending}
-          className="btn-primary mt-2 gap-2"
-        >
-          {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          Initialize
-        </button>
+        <div className="flex items-center justify-center gap-3 mt-4">
+          <button
+            onClick={() => startTransition(() => { initializeDay(targetDate); })}
+            disabled={isPending}
+            className="btn-primary gap-2"
+          >
+            {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            Initialize System
+          </button>
+          <button
+            onClick={() => setShowRestInput(true)}
+            className="btn-secondary"
+          >
+            Rest Mode
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Rest Day View ────────────────────────────────────────────────────────────
+  if (todayLog.isRestDay) {
+    return (
+      <div className="card text-center py-16 space-y-4">
+        <p className="label">System Suspended</p>
+        <h2 className="text-xl font-semibold text-[#ededed]">Rest Mode Active</h2>
+        <p className="text-sm text-[#888] italic">"{todayLog.restReason}"</p>
       </div>
     );
   }
@@ -218,7 +349,7 @@ export default function LiveDashboard({
             name="description"
             required
             placeholder="Add a clear condition..."
-            className="flex-1 min-w-0 bg-[#0a0a0a] border border-[#1f1f1f] rounded-md px-3 py-2 text-sm text-[#ededed] placeholder:text-[#333] outline-none hover:border-[#333] focus:border-[#444] transition-colors"
+            className="flex-1 min-w-0 bg-[#0a0a0a] border border-[#1f1f1f] rounded-md px-3 py-2 text-sm text-[#ededed] placeholder:text-[#333] outline-none hover:border-[#333] focus:border-[#444] transition-colors quest-input"
           />
           <SubmitButton className="btn-secondary px-3 py-2">
             <Plus className="w-4 h-4" />
@@ -295,6 +426,11 @@ export default function LiveDashboard({
             action={(formData) => {
               const fd = new FormData();
               fd.append("statCategory", activeTab);
+              
+              if (activeTab === "PENALTY") {
+                fd.append("isPenalty", "true");
+              }
+
               if (activeTab === "VIT") {
                 fd.append("timeTakenMinutes", "0");
                 fd.append("reportData", JSON.stringify({
@@ -329,7 +465,7 @@ export default function LiveDashboard({
                       name="hoursSlept"
                       required
                       placeholder="7.5"
-                      className="input"
+                      className="input stat-input"
                     />
                   </div>
                   <div>
@@ -393,7 +529,7 @@ export default function LiveDashboard({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="label block mb-1">{meta.f1}</label>
-                    <input type="text" name="field1" required className="input" />
+                    <input type="text" name="field1" required className="input stat-input" />
                   </div>
                   <div>
                     <label className="label block mb-1">{meta.f2}</label>
@@ -469,7 +605,7 @@ function EveningDebriefEditor({
             rows={12}
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="w-full bg-[#0a0a0a] border border-[#1f1f1f] rounded-md px-3 py-2.5 text-sm text-[#ededed] placeholder:text-[#333] outline-none hover:border-[#333] focus:border-[#444] transition-colors font-mono leading-relaxed resize-none"
+            className="w-full bg-[#0a0a0a] border border-[#1f1f1f] rounded-md px-3 py-2.5 text-sm text-[#ededed] placeholder:text-[#333] outline-none hover:border-[#333] focus:border-[#444] transition-colors font-mono leading-relaxed resize-none debrief-input"
             placeholder="Start writing..."
           />
           <div className="flex justify-end">

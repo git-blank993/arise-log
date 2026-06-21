@@ -26,25 +26,36 @@ export default async function ProfilePage() {
   let totalXP = 1000; // Awakening bonus
 
   logs.forEach((log) => {
-    const hasActivity = (log.quests?.length ?? 0) > 0 || (log.statLogs?.length ?? 0) > 0;
-    if (!hasActivity) totalXP -= 500; // Zero day penalty
+    const isWeekend = new Date(log.date).getDay() === 0 || new Date(log.date).getDay() === 6;
+
+    if (!log.isRestDay) {
+      const hasActivity = (log.quests?.length ?? 0) > 0 || (log.statLogs?.length ?? 0) > 0;
+      if (!hasActivity) totalXP -= 500; // Zero day penalty
+    }
 
     log.quests?.forEach((q: any) => {
+      if (q.isCompleted) {
+        totalXP += 50;
+        completedQuests++;
+      } else {
+        totalXP -= 50;
+      }
       totalQuests++;
-      if (q.isCompleted) { completedQuests++; totalXP += 50; }
-      else totalXP -= 50;
     });
 
     const distinctStats = new Set<string>();
-    log.statLogs?.forEach((r: any) => {
-      if (r.statCategory !== "VIT") {
-        totalPlaytimeMins += r.timeTakenMinutes;
-        totalXP += r.timeTakenMinutes * 10;
+    log.statLogs?.forEach((rep: any) => {
+      if (rep.statCategory !== "VIT") {
+        totalPlaytimeMins += rep.timeTakenMinutes;
+        if (rep.isPenalty) {
+          totalXP -= rep.timeTakenMinutes * 10;
+        } else {
+          totalXP += rep.timeTakenMinutes * (isWeekend ? 20 : 10);
+        }
       }
-      distinctStats.add(r.statCategory);
+      distinctStats.add(rep.statCategory);
     });
 
-    // S-Rank Clearance bonus
     const nonVit = [...distinctStats].filter((s) => s !== "VIT");
     if (nonVit.length >= 5) totalXP += 500;
   });
